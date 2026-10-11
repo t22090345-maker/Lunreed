@@ -93,7 +93,6 @@ jobs:
           }
           EOF
 
-          # AndroidManifest with HOME intent to act as Launcher
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -113,7 +112,6 @@ jobs:
                       android:windowSoftInputMode="adjustPan">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
-                          <!-- Yeh Home Launcher banata hai -->
                           <category android:name="android.intent.category.HOME" />
                           <category android:name="android.intent.category.DEFAULT" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -123,7 +121,6 @@ jobs:
           </manifest>
           EOF
 
-          # Colors (Red Theme)
           cat > app/src/main/res/values/colors.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -135,14 +132,12 @@ jobs:
           </resources>
           EOF
 
-          # Strings
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
               <string name="app_name">My Launcher</string>
           </resources>
           EOF
 
-          # Theme (Dark/Red)
           cat > app/src/main/res/values/themes.xml <<'EOF'
           <resources>
               <style name="Theme.MyLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
@@ -156,7 +151,6 @@ jobs:
           </resources>
           EOF
 
-          # Main Activity Layout
           cat > app/src/main/res/layout/activity_main.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -191,7 +185,6 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # App Item Layout
           cat > app/src/main/res/layout/item_app.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -221,13 +214,10 @@ jobs:
           </LinearLayout>
           EOF
 
-          # MainActivity.kt
           cat > app/src/main/java/com/example/mylauncher/MainActivity.kt <<'EOF'
           package com.example.mylauncher
 
           import android.content.Intent
-          import android.content.pm.PackageManager
-          import android.content.pm.ResolveInfo
           import android.os.Bundle
           import android.os.Handler
           import android.os.Looper
@@ -281,10 +271,10 @@ jobs:
               private fun loadApps() {
                   val pm = packageManager
                   val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                      addpCategory(Intent.CATEGORY_LAUNCHER)
+                      addCategory(Intent.CATEGORY_LAUNCHER)
                   }
 
-                  val apps: List<ResolveInfo> = pm.queryIntentActivities(mainIntent, 0)
+                  val apps = pm.queryIntentActivities(mainIntent, 0)
                       .sortedBy { it.loadLabel(pm).toString().lowercase() }
 
                   val appList = apps.map {
@@ -306,7 +296,6 @@ jobs:
           }
           EOF
 
-          # AppAdapter.kt
           cat > app/src/main/java/com/example/mylauncher/AppAdapter.kt <<'EOF'
           package com.example.mylauncher
 
@@ -344,11 +333,9 @@ jobs:
           }
           EOF
 
-      - name: Grant Execute Permission for gradlew
-        run: chmod +x gradlew
-
+      # Yahan humne chmod aur ./gradlew hata diya hai
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
