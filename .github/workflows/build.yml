@@ -1,0 +1,357 @@
+name: Build Custom Launcher APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Create Launcher Project Files
+        run: |
+          set -e
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "MyLauncher"
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          mkdir -p app/src/main/java/com/example/mylauncher
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
+
+          android {
+              namespace 'com.example.mylauncher'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.example.mylauncher"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes { release { minifyEnabled false } }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = '17' }
+          }
+
+          dependencies {
+              implementation 'androidx.core:core-ktx:1.13.1'
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'com.google.android.material:material:1.12.0'
+              implementation 'androidx.recyclerview:recyclerview:1.3.2'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+          }
+          EOF
+
+          # AndroidManifest with HOME intent to act as Launcher
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="@string/app_name"
+                  android:theme="@style/Theme.MyLauncher">
+
+                  <activity android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTask"
+                      android:stateNotNeeded="true"
+                      android:windowSoftInputMode="adjustPan">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <!-- Yeh Home Launcher banata hai -->
+                          <category android:name="android.intent.category.HOME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Colors (Red Theme)
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="black">#FF000000</color>
+              <color name="dark_red">#FF8B0000</color>
+              <color name="red">#FFFF0000</color>
+              <color name="white">#FFFFFFFF</color>
+              <color name="gray">#FFAAAAAA</color>
+          </resources>
+          EOF
+
+          # Strings
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">My Launcher</string>
+          </resources>
+          EOF
+
+          # Theme (Dark/Red)
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <resources>
+              <style name="Theme.MyLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="colorPrimary">@color/dark_red</item>
+                  <item name="colorPrimaryVariant">@color/red</item>
+                  <item name="colorOnPrimary">@color/white</item>
+                  <item name="android:windowBackground">@color/black</item>
+                  <item name="android:statusBarColor">@color/black</item>
+                  <item name="android:textColorPrimary">@color/white</item>
+              </style>
+          </resources>
+          EOF
+
+          # Main Activity Layout
+          cat > app/src/main/res/layout/activity_main.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:padding="16dp">
+
+              <TextView
+                  android:id="@+id/tvTime"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="00:00"
+                  android:textSize="48sp"
+                  android:textStyle="bold"
+                  android:textColor="@color/red"
+                  app:layout_constraintTop_toTopOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  android:layout_marginTop="32dp"/>
+
+              <androidx.recyclerview.widget.RecyclerView
+                  android:id="@+id/recyclerView"
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_marginTop="32dp"
+                  app:layout_constraintTop_toBottomOf="@id/tvTime"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"/>
+
+          </androidx.constraintlayout.widget.ConstraintLayout>
+          EOF
+
+          # App Item Layout
+          cat > app/src/main/res/layout/item_app.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:gravity="center"
+              android:padding="12dp"
+              android:background="?attr/selectableItemBackground">
+
+              <ImageView
+                  android:id="@+id/imgIcon"
+                  android:layout_width="56dp"
+                  android:layout_height="56dp" />
+
+              <TextView
+                  android:id="@+id/txtName"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="8dp"
+                  android:textColor="@color/white"
+                  android:textSize="12sp"
+                  android:maxLines="1"
+                  android:ellipsize="end"
+                  android:gravity="center"/>
+
+          </LinearLayout>
+          EOF
+
+          # MainActivity.kt
+          cat > app/src/main/java/com/example/mylauncher/MainActivity.kt <<'EOF'
+          package com.example.mylauncher
+
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.content.pm.ResolveInfo
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.widget.TextView
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.recyclerview.widget.GridLayoutManager
+          import androidx.recyclerview.widget.RecyclerView
+          import java.text.SimpleDateFormat
+          import java.util.*
+
+          data class AppInfo(
+              val label: String,
+              val packageName: String,
+              val icon: android.graphics.drawable.Drawable
+          )
+
+          class MainActivity : AppCompatActivity() {
+
+              private lateinit var recyclerView: RecyclerView
+              private lateinit var tvTime: TextView
+              private lateinit var adapter: AppAdapter
+              private val handler = Handler(Looper.getMainLooper())
+
+              private val updateTime = object : Runnable {
+                  override fun run() {
+                      val sdf = SimpleDateFormat("hh:mm", Locale.getDefault())
+                      tvTime.text = sdf.format(Date())
+                      handler.postDelayed(this, 1000)
+                  }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+
+                  recyclerView = findViewById(R.id.recyclerView)
+                  tvTime = findViewById(R.id.tvTime)
+
+                  recyclerView.layoutManager = GridLayoutManager(this, 4)
+
+                  loadApps()
+
+                  handler.post(updateTime)
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  handler.removeCallbacks(updateTime)
+              }
+
+              private fun loadApps() {
+                  val pm = packageManager
+                  val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                      addpCategory(Intent.CATEGORY_LAUNCHER)
+                  }
+
+                  val apps: List<ResolveInfo> = pm.queryIntentActivities(mainIntent, 0)
+                      .sortedBy { it.loadLabel(pm).toString().lowercase() }
+
+                  val appList = apps.map {
+                      AppInfo(
+                          label = it.loadLabel(pm).toString(),
+                          packageName = it.activityInfo.packageName,
+                          icon = it.loadIcon(pm)
+                      )
+                  }
+
+                  adapter = AppAdapter(appList) { app ->
+                      val launchIntent = pm.getLaunchIntentForPackage(app.packageName)
+                      if (launchIntent != null) {
+                          startActivity(launchIntent)
+                      }
+                  }
+                  recyclerView.adapter = adapter
+              }
+          }
+          EOF
+
+          # AppAdapter.kt
+          cat > app/src/main/java/com/example/mylauncher/AppAdapter.kt <<'EOF'
+          package com.example.mylauncher
+
+          import android.view.LayoutInflater
+          import android.view.View
+          import android.view.ViewGroup
+          import android.widget.ImageView
+          import android.widget.TextView
+          import androidx.recyclerview.widget.RecyclerView
+
+          class AppAdapter(
+              private val apps: List<AppInfo>,
+              private val onClick: (AppInfo) -> Unit
+          ) : RecyclerView.Adapter<AppAdapter.ViewHolder>() {
+
+              class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+                  val imgIcon: ImageView = view.findViewById(R.id.imgIcon)
+                  val txtName: TextView = view.findViewById(R.id.txtName)
+              }
+
+              override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+                  val view = LayoutInflater.from(parent.context)
+                      .inflate(R.layout.item_app, parent, false)
+                  return ViewHolder(view)
+              }
+
+              override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+                  val app = apps[position]
+                  holder.txtName.text = app.label
+                  holder.imgIcon.setImageDrawable(app.icon)
+                  holder.itemView.setOnClickListener { onClick(app) }
+              }
+
+              override fun getItemCount() = apps.size
+          }
+          EOF
+
+      - name: Grant Execute Permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: My-Custom-Launcher-APK
+          path: app/build/outputs/apk/debug/*.apk
