@@ -1,4 +1,4 @@
-name: Build Custom Launcher APK
+name: Build 3D Launcher with Exit Button
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories { google(); mavenCentral() }
           }
-          rootProject.name = "MyLauncher"
+          rootProject.name = "My3DLauncher"
           include ':app'
           EOF
 
@@ -54,7 +54,7 @@ jobs:
           android.nonTransitiveRClass=true
           EOF
 
-          mkdir -p app/src/main/java/com/example/mylauncher
+          mkdir -p app/src/main/java/com/example/my3dlauncher
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
@@ -66,11 +66,11 @@ jobs:
           }
 
           android {
-              namespace 'com.example.mylauncher'
+              namespace 'com.example.my3dlauncher'
               compileSdk 34
 
               defaultConfig {
-                  applicationId "com.example.mylauncher"
+                  applicationId "com.example.my3dlauncher"
                   minSdk 24
                   targetSdk 34
                   versionCode 1
@@ -90,6 +90,7 @@ jobs:
               implementation 'com.google.android.material:material:1.12.0'
               implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'androidx.cardview:cardview:1.0.0'
           }
           EOF
 
@@ -98,12 +99,14 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
                   android:label="@string/app_name"
-                  android:theme="@style/Theme.MyLauncher">
+                  android:theme="@style/Theme.My3DLauncher">
 
                   <activity android:name=".MainActivity"
                       android:exported="true"
@@ -124,23 +127,24 @@ jobs:
           cat > app/src/main/res/values/colors.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="black">#FF000000</color>
+              <color name="black">#FF0A0A0A</color>
               <color name="dark_red">#FF8B0000</color>
-              <color name="red">#FFFF0000</color>
+              <color name="red">#FFFF3333</color>
               <color name="white">#FFFFFFFF</color>
               <color name="gray">#FFAAAAAA</color>
+              <color name="card_bg">#FF1A1A1A</color>
           </resources>
           EOF
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">My Launcher</string>
+              <string name="app_name">My 3D Launcher</string>
           </resources>
           EOF
 
           cat > app/src/main/res/values/themes.xml <<'EOF'
           <resources>
-              <style name="Theme.MyLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+              <style name="Theme.My3DLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">@color/dark_red</item>
                   <item name="colorPrimaryVariant">@color/red</item>
                   <item name="colorOnPrimary">@color/white</item>
@@ -151,6 +155,7 @@ jobs:
           </resources>
           EOF
 
+          # Layout with X Button
           cat > app/src/main/res/layout/activity_main.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -164,19 +169,36 @@ jobs:
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:text="00:00"
-                  android:textSize="48sp"
+                  android:textSize="56sp"
                   android:textStyle="bold"
                   android:textColor="@color/red"
+                  android:shadowColor="@color/dark_red"
+                  android:shadowDx="4"
+                  android:shadowDy="4"
+                  android:shadowRadius="8"
                   app:layout_constraintTop_toTopOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintEnd_toEndOf="parent"
-                  android:layout_marginTop="32dp"/>
+                  android:layout_marginTop="48dp"/>
+
+              <!-- X (Exit) Button -->
+              <ImageButton
+                  android:id="@+id/btnExit"
+                  android:layout_width="48dp"
+                  android:layout_height="48dp"
+                  android:src="@android:drawable/ic_menu_close_clear_cancel"
+                  android:background="?attr/selectableItemBackgroundBorderless"
+                  app:tint="@color/red"
+                  app:layout_constraintTop_toTopOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  android:layout_marginTop="16dp"
+                  android:layout_marginEnd="16dp"/>
 
               <androidx.recyclerview.widget.RecyclerView
                   android:id="@+id/recyclerView"
                   android:layout_width="match_parent"
                   android:layout_height="0dp"
-                  android:layout_marginTop="32dp"
+                  android:layout_marginTop="40dp"
                   app:layout_constraintTop_toBottomOf="@id/tvTime"
                   app:layout_constraintBottom_toBottomOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
@@ -188,41 +210,66 @@ jobs:
           cat > app/src/main/res/layout/item_app.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
               android:orientation="vertical"
               android:gravity="center"
-              android:padding="12dp"
-              android:background="?attr/selectableItemBackground">
+              android:padding="8dp"
+              android:background="?attr/selectableItemBackgroundBorderless">
 
-              <ImageView
-                  android:id="@+id/imgIcon"
-                  android:layout_width="56dp"
-                  android:layout_height="56dp" />
+              <androidx.cardview.widget.CardView
+                  android:layout_width="64dp"
+                  android:layout_height="64dp"
+                  app:cardCornerRadius="16dp"
+                  app:cardElevation="12dp"
+                  app:cardBackgroundColor="@color/card_bg">
+
+                  <ImageView
+                      android:id="@+id/imgIcon"
+                      android:layout_width="48dp"
+                      android:layout_height="48dp"
+                      android:layout_gravity="center" />
+              </androidx.cardview.widget.CardView>
 
               <TextView
                   android:id="@+id/txtName"
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
-                  android:layout_marginTop="8dp"
+                  android:layout_marginTop="12dp"
                   android:textColor="@color/white"
                   android:textSize="12sp"
+                  android:textStyle="bold"
                   android:maxLines="1"
                   android:ellipsize="end"
-                  android:gravity="center"/>
+                  android:gravity="center"
+                  android:shadowColor="#000000"
+                  android:shadowDx="2"
+                  android:shadowDy="2"
+                  android:shadowRadius="4"/>
 
           </LinearLayout>
           EOF
 
-          cat > app/src/main/java/com/example/mylauncher/MainActivity.kt <<'EOF'
-          package com.example.mylauncher
+          # MainActivity with Exit Logic
+          cat > app/src/main/java/com/example/my3dlauncher/MainActivity.kt <<'EOF'
+          package com.example.my3dlauncher
 
+          import android.Manifest
           import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.os.Build
           import android.os.Bundle
           import android.os.Handler
           import android.os.Looper
+          import android.provider.Settings
+          import android.widget.ImageButton
           import android.widget.TextView
+          import android.widget.Toast
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.appcompat.app.AlertDialog
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.content.ContextCompat
           import androidx.recyclerview.widget.GridLayoutManager
           import androidx.recyclerview.widget.RecyclerView
           import java.text.SimpleDateFormat
@@ -249,18 +296,76 @@ jobs:
                   }
               }
 
+              private val requestPermissionLauncher = registerForActivityResult(
+                  ActivityResultContracts.RequestMultiplePermissions()
+              ) { permissions ->
+                  val allGranted = permissions.values.all { it }
+                  if (!allGranted) {
+                      Toast.makeText(this, "Kuch permissions nahi mili!", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
 
                   recyclerView = findViewById(R.id.recyclerView)
                   tvTime = findViewById(R.id.tvTime)
+                  val btnExit = findViewById<ImageButton>(R.id.btnExit)
 
                   recyclerView.layoutManager = GridLayoutManager(this, 4)
 
+                  checkAndRequestPermissions()
                   loadApps()
 
                   handler.post(updateTime)
+
+                  // X Button Click Listener
+                  btnExit.setOnClickListener {
+                      showExitDialog()
+                  }
+              }
+
+              private fun showExitDialog() {
+                  AlertDialog.Builder(this)
+                      .setTitle("Exit Launcher")
+                      .setMessage("Kya aap default launcher par wapas jana chahte hain?")
+                      .setPositiveButton("Haan") { _, _ ->
+                          exitToDefaultLauncher()
+                      }
+                      .setNegativeButton("Nahi", null)
+                      .show()
+              }
+
+              private fun exitToDefaultLauncher() {
+                  try {
+                      // Apna default status clear karo
+                      packageManager.clearPackagePreferredActivities(packageName)
+                      
+                      // Default Home Settings kholo
+                      val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                      startActivity(intent)
+                      
+                      Toast.makeText(this, "Yahan se apna purana launcher select karein", Toast.LENGTH_LONG).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Settings nahi khul payi, manually change karein", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              private fun checkAndRequestPermissions() {
+                  val perms = mutableListOf<String>()
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                      perms.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                  }
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                          perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                      }
+                  }
+                  if (perms.isNotEmpty()) {
+                      requestPermissionLauncher.launch(perms.toTypedArray())
+                  }
               }
 
               override fun onDestroy() {
@@ -296,8 +401,8 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/java/com/example/mylauncher/AppAdapter.kt <<'EOF'
-          package com.example.mylauncher
+          cat > app/src/main/java/com/example/my3dlauncher/AppAdapter.kt <<'EOF'
+          package com.example.my3dlauncher
 
           import android.view.LayoutInflater
           import android.view.View
@@ -326,19 +431,24 @@ jobs:
                   val app = apps[position]
                   holder.txtName.text = app.label
                   holder.imgIcon.setImageDrawable(app.icon)
-                  holder.itemView.setOnClickListener { onClick(app) }
+
+                  holder.itemView.setOnClickListener {
+                      it.animate().scaleX(0.85f).scaleY(0.85f).setDuration(100).withEndAction {
+                          it.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+                          onClick(app)
+                      }.start()
+                  }
               }
 
               override fun getItemCount() = apps.size
           }
           EOF
 
-      # Yahan humne chmod aur ./gradlew hata diya hai
       - name: Build Debug APK
         run: gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: My-Custom-Launcher-APK
+          name: My-3D-Launcher-APK
           path: app/build/outputs/apk/debug/*.apk
